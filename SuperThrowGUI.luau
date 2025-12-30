@@ -1,5 +1,5 @@
 --[[ 
-	SUPER THROW + SMART ANTI GRAB + SMART ANTI FLING + AIMBOT + ANTI LAG + ANTI AFK
+	SUPER THROW + SMART ANTI GRAB + SMART ANTI FLING + AIMBOT
 	ALL DISABLED UNTIL START
 ]]
 
@@ -11,7 +11,6 @@ local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
@@ -124,24 +123,20 @@ startButton.MouseButton1Click:Connect(function()
 end)
 
 --------------------------------------------------
--- SMART ANTI GRAB + TRUE SMART ANTI FLING
+-- SMART ANTI GRAB + ANTI FLING
 --------------------------------------------------
 local CE = ReplicatedStorage:WaitForChild("CharacterEvents")
 local StruggleEvent = CE:WaitForChild("Struggle")
 local BeingHeld = player:WaitForChild("IsHeld")
 
-local lastSafeCFrame = nil
-local flingStartTime = nil
+local lastSafeCFrame
+local airStart
 
-local FLING_SPEED_THRESHOLD = 25
-local FLING_TIME = 0.15
-local RETURN_DELAY = 0.05
-
-local function isGrounded(root)
+local function grounded(root)
 	local params = RaycastParams.new()
 	params.FilterDescendantsInstances = {player.Character}
 	params.FilterType = Enum.RaycastFilterType.Blacklist
-	return Workspace:Raycast(root.Position, Vector3.new(0, -7, 0), params) ~= nil
+	return Workspace:Raycast(root.Position, Vector3.new(0,-6,0), params) ~= nil
 end
 
 RunService.Heartbeat:Connect(function()
@@ -149,52 +144,41 @@ RunService.Heartbeat:Connect(function()
 
 	local char = player.Character
 	if not char then return end
-
 	local root = char:FindFirstChild("HumanoidRootPart")
 	local hum = char:FindFirstChildOfClass("Humanoid")
 	if not root or not hum then return end
 
-	local velocity = root.AssemblyLinearVelocity
-	local speed = velocity.Magnitude
-	local grounded = isGrounded(root)
+	local speed = root.AssemblyLinearVelocity.Magnitude
 
-	-- ANTI GRAB
+	-- Anti Grab
 	if BeingHeld.Value then
 		root.AssemblyLinearVelocity = Vector3.zero
 		root.AssemblyAngularVelocity = Vector3.zero
 		StruggleEvent:FireServer(player)
 	end
 
-	-- SAVE SAFE GROUND
-	if grounded and speed < 8 and not BeingHeld.Value then
+	-- Save safe ground
+	if grounded(root) and speed < 10 and not BeingHeld.Value then
 		lastSafeCFrame = root.CFrame
-		flingStartTime = nil
+		airStart = nil
 	end
 
-	-- TRUE ANTI FLING
-	if speed > FLING_SPEED_THRESHOLD and not BeingHeld.Value then
-		if not flingStartTime then
-			flingStartTime = os.clock()
-		elseif os.clock() - flingStartTime >= FLING_TIME then
-			if lastSafeCFrame then
-				task.delay(RETURN_DELAY, function()
-					if root and root.Parent then
-						root.AssemblyLinearVelocity = Vector3.zero
-						root.AssemblyAngularVelocity = Vector3.zero
-						hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-						root.CFrame = lastSafeCFrame
-					end
-				end)
-			end
-			flingStartTime = nil
+	-- Detect fling
+	if speed > 70 and not grounded(root) then
+		if not airStart then
+			airStart = os.clock()
+		elseif os.clock() - airStart >= 3 and lastSafeCFrame then
+			root.AssemblyLinearVelocity = Vector3.zero
+			root.AssemblyAngularVelocity = Vector3.zero
+			hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+			root.CFrame = lastSafeCFrame
+			airStart = nil
 		end
-	else
-		flingStartTime = nil
 	end
 end)
 
 --------------------------------------------------
--- SUPER THROW CORE
+-- SUPER THROW CORE (MODIFIED GRAB)
 --------------------------------------------------
 Workspace.ChildAdded:Connect(function(model)
 	if not SYSTEM_ENABLED then return end
@@ -209,14 +193,21 @@ Workspace.ChildAdded:Connect(function(model)
 	local bv = Instance.new("BodyVelocity", part)
 	bv.MaxForce = Vector3.zero
 
+	-- Only connect the button once, manual press
+	local buttonConnected = false
+
 	while model.Parent do
-		for _,obj in pairs(player.PlayerGui:WaitForChild("ContextActionGui"):GetDescendants()) do
-			if obj:IsA("ImageLabel") and obj.Image == "http://www.roblox.com/asset/?id=9603678090" then
-				obj.Parent.MouseButton1Down:Connect(function()
-					bv.MaxForce = Vector3.new(math.huge,math.huge,math.huge)
-					bv.Velocity = Camera.CFrame.LookVector * strength
-				end)
-				return
+		if not buttonConnected then
+			for _, obj in pairs(player.PlayerGui:WaitForChild("ContextActionGui"):GetDescendants()) do
+				if obj:IsA("ImageLabel") and obj.Image == "http://www.roblox.com/asset/?id=9603678090" then
+					local btn = obj.Parent
+					btn.MouseButton1Down:Connect(function()
+						bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+						bv.Velocity = Camera.CFrame.LookVector * strength
+					end)
+					buttonConnected = true
+					break
+				end
 			end
 		end
 		RunService.Heartbeat:Wait()
@@ -254,25 +245,4 @@ RunService.RenderStepped:Connect(function()
 	if target then
 		Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
 	end
-end)
-
---------------------------------------------------
--- ANTI LAG
---------------------------------------------------
-RunService.Heartbeat:Connect(function()
-	if not SYSTEM_ENABLED then return end
-	local char = player.Character
-	if char and char:FindFirstChild("HumanoidRootPart") then
-		char.HumanoidRootPart.AssemblyLinearVelocity = Vector3.new(0,0,0)
-	end
-end)
-
---------------------------------------------------
--- ANTI AFK
---------------------------------------------------
-local virtualUser = game:GetService("VirtualUser")
-RunService.Heartbeat:Connect(function()
-	if not SYSTEM_ENABLED then return end
-	virtualUser:CaptureController()
-	virtualUser:ClickButton1(Vector2.new())
 end)
