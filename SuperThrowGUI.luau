@@ -1,5 +1,5 @@
 -- LocalScript
--- Super Throw + Anti Grab + Anti Fling (Exact Return)
+-- Super Throw + Anti Grab + Safe Anti Fling (FIXED GUI + TRUE GROUND RETURN)
 
 --------------------------------------------------
 -- SERVICES
@@ -21,7 +21,7 @@ local strength = TARGET_DISTANCE / IMPULSE_TIME
 local superThrowEnabled = false
 
 --------------------------------------------------
--- GUI
+-- GUI (SUPER THROW)
 --------------------------------------------------
 local gui = Instance.new("ScreenGui")
 gui.Name = "SuperThrowGUI"
@@ -34,7 +34,6 @@ mainFrame.Position = UDim2.fromScale(0.5, 0.5)
 mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 mainFrame.Parent = gui
-
 Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 28)
 
 local title = Instance.new("TextLabel")
@@ -43,7 +42,7 @@ title.BackgroundTransparency = 1
 title.Text = "SUPER THROW"
 title.Font = Enum.Font.GothamBlack
 title.TextScaled = true
-title.TextColor3 = Color3.new(1, 1, 1)
+title.TextColor3 = Color3.new(1,1,1)
 title.Parent = mainFrame
 
 local startButton = Instance.new("TextButton")
@@ -54,43 +53,36 @@ startButton.BackgroundColor3 = Color3.fromRGB(0, 200, 90)
 startButton.Text = "START"
 startButton.Font = Enum.Font.GothamBold
 startButton.TextScaled = true
-startButton.TextColor3 = Color3.new(1, 1, 1)
+startButton.TextColor3 = Color3.new(1,1,1)
 startButton.Parent = mainFrame
 Instance.new("UICorner", startButton).CornerRadius = UDim.new(0, 22)
 
 startButton.MouseButton1Click:Connect(function()
 	superThrowEnabled = true
 	startButton.Text = "ENABLED"
-	startButton.BackgroundColor3 = Color3.fromRGB(0, 140, 60)
+	startButton.BackgroundColor3 = Color3.fromRGB(0,140,60)
 	task.delay(0.4, function()
 		mainFrame.Visible = false
 	end)
 end)
 
 --------------------------------------------------
--- ANTI GRAB (سريع)
+-- ANTI GRAB (FAST)
 --------------------------------------------------
 local CE = ReplicatedStorage:WaitForChild("CharacterEvents")
 local StruggleEvent = CE:WaitForChild("Struggle")
 local BeingHeld = player:WaitForChild("IsHeld")
 
 local antiGrabConn
-local function stopAntiGrab()
-	if antiGrabConn then
-		antiGrabConn:Disconnect()
-		antiGrabConn = nil
-	end
-end
-
 BeingHeld.Changed:Connect(function(v)
-	if v == true then
+	if v then
 		local char = player.Character
 		if not char then return end
 		local root = char:WaitForChild("HumanoidRootPart")
 
 		antiGrabConn = RunService.RenderStepped:Connect(function()
 			if not BeingHeld.Value then
-				stopAntiGrab()
+				if antiGrabConn then antiGrabConn:Disconnect() end
 				return
 			end
 			root.AssemblyLinearVelocity = Vector3.zero
@@ -98,12 +90,12 @@ BeingHeld.Changed:Connect(function(v)
 			StruggleEvent:FireServer(player)
 		end)
 	else
-		stopAntiGrab()
+		if antiGrabConn then antiGrabConn:Disconnect() end
 	end
 end)
 
 --------------------------------------------------
--- TRUE SAFE ANTI FLING (GROUND-BASED)
+-- TRUE SAFE ANTI FLING (GROUND ONLY + NO GUI BREAK)
 --------------------------------------------------
 local lastSafeCFrame = nil
 local lastGroundedTime = 0
@@ -116,21 +108,16 @@ local function isGrounded(root)
 	local params = RaycastParams.new()
 	params.FilterDescendantsInstances = {player.Character}
 	params.FilterType = Enum.RaycastFilterType.Blacklist
-
-	local result = workspace:Raycast(
-		root.Position,
-		Vector3.new(0, -6, 0),
-		params
-	)
-
-	return result ~= nil
+	return workspace:Raycast(root.Position, Vector3.new(0,-6,0), params) ~= nil
 end
 
-RunService.Heartbeat:Connect(function(dt)
+RunService.Heartbeat:Connect(function()
 	local char = player.Character
 	if not char then return end
+
+	local humanoid = char:FindFirstChildWhichIsA("Humanoid")
 	local root = char:FindFirstChild("HumanoidRootPart")
-	if not root then return end
+	if not humanoid or not root then return end
 
 	local speed = root.AssemblyLinearVelocity.Magnitude
 	local angular = root.AssemblyAngularVelocity.Magnitude
@@ -143,20 +130,20 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 
 	-- كشف fling
-	if speed > FLING_SPEED or angular > FLING_ANGULAR then
-		-- لو صار في الهواء أكثر من المسموح
-		if not grounded and lastSafeCFrame then
-			if os.clock() - lastGroundedTime >= MAX_AIR_TIME then
-				root.AssemblyLinearVelocity = Vector3.zero
-				root.AssemblyAngularVelocity = Vector3.zero
-				root.CFrame = lastSafeCFrame
-			end
-		end
+	if (speed > FLING_SPEED or angular > FLING_ANGULAR)
+		and not grounded
+		and lastSafeCFrame
+		and os.clock() - lastGroundedTime >= MAX_AIR_TIME then
+
+		root.AssemblyLinearVelocity = Vector3.zero
+		root.AssemblyAngularVelocity = Vector3.zero
+		humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+		root.CFrame = lastSafeCFrame
 	end
 end)
 
 --------------------------------------------------
--- SUPER THROW CORE
+-- SUPER THROW CORE (NEW MODEL)
 --------------------------------------------------
 Workspace.ChildAdded:Connect(function(model)
 	if model.Name ~= "GrabParts" then return end
@@ -175,7 +162,8 @@ Workspace.ChildAdded:Connect(function(model)
 	local button
 	while not button and model.Parent do
 		for _, obj in pairs(player.PlayerGui:WaitForChild("ContextActionGui"):GetDescendants()) do
-			if obj:IsA("ImageLabel") and obj.Image == "http://www.roblox.com/asset/?id=9603678090" then
+			if obj:IsA("ImageLabel")
+				and obj.Image == "http://www.roblox.com/asset/?id=9603678090" then
 				button = obj.Parent
 				break
 			end
@@ -185,7 +173,7 @@ Workspace.ChildAdded:Connect(function(model)
 
 	if button then
 		button.MouseButton1Down:Connect(function()
-			bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+			bv.MaxForce = Vector3.new(math.huge,math.huge,math.huge)
 			bv.Velocity = Workspace.CurrentCamera.CFrame.LookVector * strength
 		end)
 	end
