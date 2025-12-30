@@ -1,5 +1,5 @@
 -- LocalScript
--- Super Throw + Anti Grab + Anti Fling محسّن + Safe Reposition + GUI آمن
+-- Super Throw + Anti Grab + Anti Fling محسّن + Safe Reposition مع انتظار 3 ثواني
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -18,7 +18,7 @@ local strength = TARGET_DISTANCE / IMPULSE_TIME
 local superThrowEnabled = false
 
 --------------------------------------------------
--- GUI CREATION (مستقل وآمن)
+-- GUI CREATION
 --------------------------------------------------
 local gui = Instance.new("ScreenGui")
 gui.Name = "SuperThrowGUI"
@@ -110,11 +110,13 @@ player.CharacterAdded:Connect(function(char)
 end)
 
 --------------------------------------------------
--- SAFE REPOSITION + ANTI FLING محسّن
+-- SAFE REPOSITION + ANTI FLING محسّن + انتظار 3 ثواني
 --------------------------------------------------
 local lastSafeCFrame = nil
+local WAIT_TIME = 3
 local WALK_SPEED_THRESHOLD = 16
 local JUMP_SPEED_THRESHOLD = 50
+local flungTime = 0
 
 local function isGrounded(root)
 	local ray = Ray.new(root.Position, Vector3.new(0, -5, 0))
@@ -128,19 +130,33 @@ RunService.Heartbeat:Connect(function()
 	local root = char:FindFirstChild("HumanoidRootPart")
 	if not root then return end
 
-	local linearMag = root.AssemblyLinearVelocity.Magnitude
-	local angularMag = root.AssemblyAngularVelocity.Magnitude
-
-	if linearMag < WALK_SPEED_THRESHOLD and angularMag < 50 and BeingHeld.Value == false then
+	-- تحديث الموقع الآمن فقط إذا لم يتم الإمساك بك
+	if BeingHeld.Value == false then
 		lastSafeCFrame = root.CFrame
 	end
 
+	local linearMag = root.AssemblyLinearVelocity.Magnitude
+	local angularMag = root.AssemblyAngularVelocity.Magnitude
+
 	if lastSafeCFrame and (linearMag > JUMP_SPEED_THRESHOLD or angularMag > 200) then
-		if not isGrounded(root) then
+		if isGrounded(root) then
+			-- إذا فيه بلوكة تحت الشخصية ننتظر 3 ثواني قبل إعادة مكانها
+			flungTime = flungTime + RunService.Heartbeat:Wait()
+			if flungTime >= WAIT_TIME then
+				root.AssemblyLinearVelocity = Vector3.zero
+				root.AssemblyAngularVelocity = Vector3.zero
+				root.CFrame = lastSafeCFrame
+				flungTime = 0
+			end
+		else
+			-- إذا ما فيه بلوكة تحتها نرجع فوراً
 			root.AssemblyLinearVelocity = Vector3.zero
 			root.AssemblyAngularVelocity = Vector3.zero
 			root.CFrame = lastSafeCFrame
+			flungTime = 0
 		end
+	else
+		flungTime = 0
 	end
 end)
 
