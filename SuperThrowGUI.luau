@@ -110,7 +110,7 @@ local lastGroundedTime = 0
 
 local FLING_SPEED = 70
 local FLING_ANGULAR = 200
-local MAX_AIR_TIME = 3
+local MAX_AIR_TIME = 5
 
 local function isGrounded(root)
 	local params = RaycastParams.new()
