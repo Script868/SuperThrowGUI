@@ -1,9 +1,6 @@
 -- LocalScript
--- Super Throw + Anti Grab + Anti Fling محسّن + Safe Reposition مع التحقق من الأرض
+-- Super Throw + Anti Grab + Anti Fling محسّن + Safe Reposition + GUI آمن
 
---------------------------------------------------
--- SERVICES
---------------------------------------------------
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
@@ -21,11 +18,12 @@ local strength = TARGET_DISTANCE / IMPULSE_TIME
 local superThrowEnabled = false
 
 --------------------------------------------------
--- GUI CREATION
+-- GUI CREATION (مستقل وآمن)
 --------------------------------------------------
-local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+local gui = Instance.new("ScreenGui")
 gui.Name = "SuperThrowGUI"
 gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame", gui)
 mainFrame.Size = UDim2.fromScale(0.45, 0.35)
@@ -133,20 +131,16 @@ RunService.Heartbeat:Connect(function()
 	local linearMag = root.AssemblyLinearVelocity.Magnitude
 	local angularMag = root.AssemblyAngularVelocity.Magnitude
 
-	-- تحديث آخر موقع آمن فقط إذا الحركة طبيعية
 	if linearMag < WALK_SPEED_THRESHOLD and angularMag < 50 and BeingHeld.Value == false then
 		lastSafeCFrame = root.CFrame
 	end
 
-	-- إذا تم Flung بسرعة خارقة
 	if lastSafeCFrame and (linearMag > JUMP_SPEED_THRESHOLD or angularMag > 200) then
 		if not isGrounded(root) then
-			-- لا يوجد بلوك تحت الشخصية → أرجع آخر موقع آمن
 			root.AssemblyLinearVelocity = Vector3.zero
 			root.AssemblyAngularVelocity = Vector3.zero
 			root.CFrame = lastSafeCFrame
 		end
-		-- إذا فيه بلوك تحت الشخصية، خلي الشخصية على الأرض بدون إعادة مكانها
 	end
 end)
 
@@ -171,10 +165,13 @@ Workspace.ChildAdded:Connect(function(model)
 	local c1, c2, c3
 
 	while not inputButton and model.Parent do
-		for _, obj in pairs(player.PlayerGui:WaitForChild("ContextActionGui"):GetDescendants()) do
-			if obj:IsA("ImageLabel") and obj.Image == "http://www.roblox.com/asset/?id=9603678090" then
-				inputButton = obj.Parent
-				break
+		local contextGui = player.PlayerGui:FindFirstChild("ContextActionGui")
+		if contextGui then
+			for _, obj in pairs(contextGui:GetDescendants()) do
+				if obj:IsA("ImageLabel") and obj.Image == "http://www.roblox.com/asset/?id=9603678090" then
+					inputButton = obj.Parent
+					break
+				end
 			end
 		end
 		RunService.Heartbeat:Wait()
