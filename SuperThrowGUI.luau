@@ -1,5 +1,5 @@
 --[[ 
-	SUPER THROW + SMART ANTI GRAB + SMART ANTI FLING + AIMBOT
+	SUPER THROW + SMART ANTI GRAB + SMART ANTI FLING + AIMBOT + ANTI LAG + ANTI AFK
 	ALL DISABLED UNTIL START
 ]]
 
@@ -11,6 +11,7 @@ local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
@@ -65,7 +66,6 @@ Instance.new("UICorner", startButton).CornerRadius = UDim.new(0,22)
 -- AIMBOT GUI (CREATED AFTER START)
 --------------------------------------------------
 local AIMBOT_ENABLED = false
-
 local function createAimbotGUI()
 	if player.PlayerGui:FindFirstChild("AimbotGUI") then return end
 
@@ -123,14 +123,12 @@ startButton.MouseButton1Click:Connect(function()
 end)
 
 --------------------------------------------------
--- SMART ANTI GRAB + ANTI FLING
+-- SMART ANTI GRAB + SMART ANTI FLING
 --------------------------------------------------
 local CE = ReplicatedStorage:WaitForChild("CharacterEvents")
 local StruggleEvent = CE:WaitForChild("Struggle")
 local BeingHeld = player:WaitForChild("IsHeld")
-
-local lastSafeCFrame
-local airStart
+local lastSafeCFrame, airStart
 
 local function grounded(root)
 	local params = RaycastParams.new()
@@ -163,7 +161,7 @@ RunService.Heartbeat:Connect(function()
 		airStart = nil
 	end
 
-	-- Detect fling
+	-- Detect fling and return to last safe position
 	if speed > 70 and not grounded(root) then
 		if not airStart then
 			airStart = os.clock()
@@ -238,4 +236,21 @@ RunService.RenderStepped:Connect(function()
 	if target then
 		Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
 	end
+end)
+
+--------------------------------------------------
+-- ANTI LAG (CLEAR EXPLOSIONS)
+--------------------------------------------------
+Workspace.DescendantAdded:Connect(function(obj)
+	if obj:IsA("Explosion") then
+		obj.BlastPressure = 0
+	end
+end)
+
+--------------------------------------------------
+-- ANTI AFK (PREVENT IDLE)
+--------------------------------------------------
+Players.LocalPlayer.Idled:Connect(function()
+	-- simulate input
+	UserInputService.InputBegan:Fire({UserInputType = Enum.UserInputType.Keyboard, KeyCode = Enum.KeyCode.W})
 end)
