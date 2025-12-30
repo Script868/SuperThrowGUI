@@ -196,3 +196,82 @@ Workspace.ChildAdded:Connect(function(model)
 		end
 	end)
 end)
+
+
+--------------------------------------------------
+-- AIMBOT + GUI (READY, NO SETUP)
+--------------------------------------------------
+local AIMBOT_ENABLED = false
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local player = Players.LocalPlayer
+
+-- GUI
+local gui = Instance.new("ScreenGui")
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.fromOffset(140, 50)
+frame.Position = UDim2.fromScale(0.02, 0.45)
+frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
+frame.Parent = gui
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0,14)
+
+local stroke = Instance.new("UIStroke", frame)
+stroke.Thickness = 2
+stroke.Color = Color3.fromRGB(255,80,80)
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.fromScale(1,1)
+button.BackgroundTransparency = 1
+button.Text = "AIMBOT : OFF"
+button.Font = Enum.Font.GothamBold
+button.TextScaled = true
+button.TextColor3 = Color3.fromRGB(255,80,80)
+button.Parent = frame
+
+button.MouseButton1Click:Connect(function()
+	AIMBOT_ENABLED = not AIMBOT_ENABLED
+	if AIMBOT_ENABLED then
+		button.Text = "AIMBOT : ON"
+		button.TextColor3 = Color3.fromRGB(0,255,120)
+		stroke.Color = Color3.fromRGB(0,255,120)
+	else
+		button.Text = "AIMBOT : OFF"
+		button.TextColor3 = Color3.fromRGB(255,80,80)
+		stroke.Color = Color3.fromRGB(255,80,80)
+	end
+end)
+
+-- Aimbot
+local function getClosestPlayer()
+	local myChar = player.Character
+	if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
+	local myPos = myChar.HumanoidRootPart.Position
+
+	local closest, dist = nil, math.huge
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= player and plr.Character then
+			local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+			local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+			if hrp and hum and hum.Health > 0 then
+				local d = (hrp.Position - myPos).Magnitude
+				if d < dist then
+					dist = d
+					closest = hrp
+				end
+			end
+		end
+	end
+	return closest
+end
+
+RunService.RenderStepped:Connect(function()
+	if not AIMBOT_ENABLED then return end
+	local target = getClosestPlayer()
+	if target then
+		Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
+	end
+end)
