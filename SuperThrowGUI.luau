@@ -1,6 +1,9 @@
 -- LocalScript
--- Super Throw + Anti Grab + Anti Fling محسّن
+-- Super Throw + Anti Grab + Anti Fling محسّن + Safe Reposition مع التحقق من الأرض
 
+--------------------------------------------------
+-- SERVICES
+--------------------------------------------------
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
@@ -8,12 +11,18 @@ local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
+
+--------------------------------------------------
+-- THROW SETTINGS
+--------------------------------------------------
 local TARGET_DISTANCE = 900
 local IMPULSE_TIME = 0.15
 local strength = TARGET_DISTANCE / IMPULSE_TIME
 local superThrowEnabled = false
 
--- GUI
+--------------------------------------------------
+-- GUI CREATION
+--------------------------------------------------
 local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 gui.Name = "SuperThrowGUI"
 gui.ResetOnSpawn = false
@@ -55,7 +64,9 @@ startButton.MouseButton1Click:Connect(function()
 	task.delay(0.4, function() mainFrame.Visible = false end)
 end)
 
--- Anti Grab
+--------------------------------------------------
+-- ANTI GRAB
+--------------------------------------------------
 local CE = ReplicatedStorage:WaitForChild("CharacterEvents")
 local StruggleEvent = CE:WaitForChild("Struggle")
 local BeingHeld = player:WaitForChild("IsHeld")
@@ -100,10 +111,18 @@ player.CharacterAdded:Connect(function(char)
 	stopAntiGrab()
 end)
 
--- Anti Fling محسّن + Safe Reposition
+--------------------------------------------------
+-- SAFE REPOSITION + ANTI FLING محسّن
+--------------------------------------------------
 local lastSafeCFrame = nil
 local WALK_SPEED_THRESHOLD = 16
 local JUMP_SPEED_THRESHOLD = 50
+
+local function isGrounded(root)
+	local ray = Ray.new(root.Position, Vector3.new(0, -5, 0))
+	local part = Workspace:FindPartOnRay(ray, player.Character)
+	return part ~= nil
+end
 
 RunService.Heartbeat:Connect(function()
 	local char = player.Character
@@ -121,13 +140,19 @@ RunService.Heartbeat:Connect(function()
 
 	-- إذا تم Flung بسرعة خارقة
 	if lastSafeCFrame and (linearMag > JUMP_SPEED_THRESHOLD or angularMag > 200) then
-		root.AssemblyLinearVelocity = Vector3.zero
-		root.AssemblyAngularVelocity = Vector3.zero
-		root.CFrame = lastSafeCFrame
+		if not isGrounded(root) then
+			-- لا يوجد بلوك تحت الشخصية → أرجع آخر موقع آمن
+			root.AssemblyLinearVelocity = Vector3.zero
+			root.AssemblyAngularVelocity = Vector3.zero
+			root.CFrame = lastSafeCFrame
+		end
+		-- إذا فيه بلوك تحت الشخصية، خلي الشخصية على الأرض بدون إعادة مكانها
 	end
 end)
 
--- Super Throw Core
+--------------------------------------------------
+-- SUPER THROW CORE (NEW MODEL)
+--------------------------------------------------
 Workspace.ChildAdded:Connect(function(model)
 	if model.Name ~= "GrabParts" then return end
 	if not superThrowEnabled then return end
