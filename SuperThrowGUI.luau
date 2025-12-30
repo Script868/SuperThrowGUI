@@ -66,6 +66,7 @@ Instance.new("UICorner", startButton).CornerRadius = UDim.new(0,22)
 -- AIMBOT GUI (CREATED AFTER START)
 --------------------------------------------------
 local AIMBOT_ENABLED = false
+
 local function createAimbotGUI()
 	if player.PlayerGui:FindFirstChild("AimbotGUI") then return end
 
@@ -123,18 +124,24 @@ startButton.MouseButton1Click:Connect(function()
 end)
 
 --------------------------------------------------
--- SMART ANTI GRAB + SMART ANTI FLING
+-- SMART ANTI GRAB + TRUE SMART ANTI FLING
 --------------------------------------------------
 local CE = ReplicatedStorage:WaitForChild("CharacterEvents")
 local StruggleEvent = CE:WaitForChild("Struggle")
 local BeingHeld = player:WaitForChild("IsHeld")
-local lastSafeCFrame, airStart
 
-local function grounded(root)
+local lastSafeCFrame = nil
+local flingStartTime = nil
+
+local FLING_SPEED_THRESHOLD = 25
+local FLING_TIME = 0.15
+local RETURN_DELAY = 0.05
+
+local function isGrounded(root)
 	local params = RaycastParams.new()
 	params.FilterDescendantsInstances = {player.Character}
 	params.FilterType = Enum.RaycastFilterType.Blacklist
-	return Workspace:Raycast(root.Position, Vector3.new(0,-6,0), params) ~= nil
+	return Workspace:Raycast(root.Position, Vector3.new(0, -7, 0), params) ~= nil
 end
 
 RunService.Heartbeat:Connect(function()
@@ -142,36 +149,47 @@ RunService.Heartbeat:Connect(function()
 
 	local char = player.Character
 	if not char then return end
+
 	local root = char:FindFirstChild("HumanoidRootPart")
 	local hum = char:FindFirstChildOfClass("Humanoid")
 	if not root or not hum then return end
 
-	local speed = root.AssemblyLinearVelocity.Magnitude
+	local velocity = root.AssemblyLinearVelocity
+	local speed = velocity.Magnitude
+	local grounded = isGrounded(root)
 
-	-- Anti Grab
+	-- ANTI GRAB
 	if BeingHeld.Value then
 		root.AssemblyLinearVelocity = Vector3.zero
 		root.AssemblyAngularVelocity = Vector3.zero
 		StruggleEvent:FireServer(player)
 	end
 
-	-- Save safe ground
-	if grounded(root) and speed < 10 and not BeingHeld.Value then
+	-- SAVE SAFE GROUND
+	if grounded and speed < 8 and not BeingHeld.Value then
 		lastSafeCFrame = root.CFrame
-		airStart = nil
+		flingStartTime = nil
 	end
 
-	-- Detect fling and return to last safe position
-	if speed > 70 and not grounded(root) then
-		if not airStart then
-			airStart = os.clock()
-		elseif os.clock() - airStart >= 3 and lastSafeCFrame then
-			root.AssemblyLinearVelocity = Vector3.zero
-			root.AssemblyAngularVelocity = Vector3.zero
-			hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-			root.CFrame = lastSafeCFrame
-			airStart = nil
+	-- TRUE ANTI FLING
+	if speed > FLING_SPEED_THRESHOLD and not BeingHeld.Value then
+		if not flingStartTime then
+			flingStartTime = os.clock()
+		elseif os.clock() - flingStartTime >= FLING_TIME then
+			if lastSafeCFrame then
+				task.delay(RETURN_DELAY, function()
+					if root and root.Parent then
+						root.AssemblyLinearVelocity = Vector3.zero
+						root.AssemblyAngularVelocity = Vector3.zero
+						hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+						root.CFrame = lastSafeCFrame
+					end
+				end)
+			end
+			flingStartTime = nil
 		end
+	else
+		flingStartTime = nil
 	end
 end)
 
@@ -239,18 +257,22 @@ RunService.RenderStepped:Connect(function()
 end)
 
 --------------------------------------------------
--- ANTI LAG (CLEAR EXPLOSIONS)
+-- ANTI LAG
 --------------------------------------------------
-Workspace.DescendantAdded:Connect(function(obj)
-	if obj:IsA("Explosion") then
-		obj.BlastPressure = 0
+RunService.Heartbeat:Connect(function()
+	if not SYSTEM_ENABLED then return end
+	local char = player.Character
+	if char and char:FindFirstChild("HumanoidRootPart") then
+		char.HumanoidRootPart.AssemblyLinearVelocity = Vector3.new(0,0,0)
 	end
 end)
 
 --------------------------------------------------
--- ANTI AFK (PREVENT IDLE)
+-- ANTI AFK
 --------------------------------------------------
-Players.LocalPlayer.Idled:Connect(function()
-	-- simulate input
-	UserInputService.InputBegan:Fire({UserInputType = Enum.UserInputType.Keyboard, KeyCode = Enum.KeyCode.W})
+local virtualUser = game:GetService("VirtualUser")
+RunService.Heartbeat:Connect(function()
+	if not SYSTEM_ENABLED then return end
+	virtualUser:CaptureController()
+	virtualUser:ClickButton1(Vector2.new())
 end)
