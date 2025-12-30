@@ -103,22 +103,30 @@ BeingHeld.Changed:Connect(function(v)
 end)
 
 --------------------------------------------------
--- TRUE ANTI FLING (يرجعك لنفس المكان)
+-- TRUE SAFE ANTI FLING (GROUND-BASED)
 --------------------------------------------------
-local savedBeforeFling
-local flingStarted = false
-local flingStartTime = 0
-local WAIT_TIME = 3
+local lastSafeCFrame = nil
+local lastGroundedTime = 0
 
-local function hasGroundBelow(root)
+local FLING_SPEED = 70
+local FLING_ANGULAR = 200
+local MAX_AIR_TIME = 3
+
+local function isGrounded(root)
 	local params = RaycastParams.new()
 	params.FilterDescendantsInstances = {player.Character}
 	params.FilterType = Enum.RaycastFilterType.Blacklist
 
-	return workspace:Raycast(root.Position, Vector3.new(0, -8, 0), params) ~= nil
+	local result = workspace:Raycast(
+		root.Position,
+		Vector3.new(0, -6, 0),
+		params
+	)
+
+	return result ~= nil
 end
 
-RunService.Heartbeat:Connect(function()
+RunService.Heartbeat:Connect(function(dt)
 	local char = player.Character
 	if not char then return end
 	local root = char:FindFirstChild("HumanoidRootPart")
@@ -126,27 +134,23 @@ RunService.Heartbeat:Connect(function()
 
 	local speed = root.AssemblyLinearVelocity.Magnitude
 	local angular = root.AssemblyAngularVelocity.Magnitude
-	local isFlung = speed > 70 or angular > 200
+	local grounded = isGrounded(root)
 
-	-- حفظ المكان الطبيعي فقط
-	if not isFlung and not BeingHeld.Value then
-		savedBeforeFling = root.CFrame
-		flingStarted = false
-		return
+	-- حفظ مكان آمن حقيقي فقط
+	if grounded and not BeingHeld.Value and speed < 10 then
+		lastSafeCFrame = root.CFrame
+		lastGroundedTime = os.clock()
 	end
 
-	-- بداية الطيران
-	if isFlung and not flingStarted and savedBeforeFling then
-		flingStarted = true
-		flingStartTime = os.clock()
-	end
-
-	if flingStarted and savedBeforeFling then
-		if not hasGroundBelow(root) or os.clock() - flingStartTime >= WAIT_TIME then
-			root.AssemblyLinearVelocity = Vector3.zero
-			root.AssemblyAngularVelocity = Vector3.zero
-			root.CFrame = savedBeforeFling
-			flingStarted = false
+	-- كشف fling
+	if speed > FLING_SPEED or angular > FLING_ANGULAR then
+		-- لو صار في الهواء أكثر من المسموح
+		if not grounded and lastSafeCFrame then
+			if os.clock() - lastGroundedTime >= MAX_AIR_TIME then
+				root.AssemblyLinearVelocity = Vector3.zero
+				root.AssemblyAngularVelocity = Vector3.zero
+				root.CFrame = lastSafeCFrame
+			end
 		end
 	end
 end)
