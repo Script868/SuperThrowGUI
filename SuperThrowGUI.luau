@@ -9,8 +9,8 @@
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
-local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Debris = game:GetService("Debris")
 
 local player = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
@@ -123,7 +123,7 @@ startButton.MouseButton1Click:Connect(function()
 end)
 
 --------------------------------------------------
--- SMART ANTI GRAB + ANTI FLING
+-- SMART ANTI GRAB + SMART ANTI FLING
 --------------------------------------------------
 local CE = ReplicatedStorage:WaitForChild("CharacterEvents")
 local StruggleEvent = CE:WaitForChild("Struggle")
@@ -163,7 +163,7 @@ RunService.Heartbeat:Connect(function()
 		airStart = nil
 	end
 
-	-- Detect fling
+	-- Smart Anti Fling
 	if speed > 70 and not grounded(root) then
 		if not airStart then
 			airStart = os.clock()
@@ -178,7 +178,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 --------------------------------------------------
--- SUPER THROW CORE (MODIFIED GRAB)
+-- SUPER THROW CORE (MANUAL GRAB)
 --------------------------------------------------
 Workspace.ChildAdded:Connect(function(model)
 	if not SYSTEM_ENABLED then return end
@@ -193,19 +193,19 @@ Workspace.ChildAdded:Connect(function(model)
 	local bv = Instance.new("BodyVelocity", part)
 	bv.MaxForce = Vector3.zero
 
-	-- Only connect the button once, manual press
-	local buttonConnected = false
-
-	while model.Parent do
-		if not buttonConnected then
-			for _, obj in pairs(player.PlayerGui:WaitForChild("ContextActionGui"):GetDescendants()) do
+	-- Connect grab button only once when it appears
+	local connected = false
+	while model.Parent and not connected do
+		local ctx = player.PlayerGui:FindFirstChild("ContextActionGui")
+		if ctx then
+			for _, obj in pairs(ctx:GetDescendants()) do
 				if obj:IsA("ImageLabel") and obj.Image == "http://www.roblox.com/asset/?id=9603678090" then
-					local btn = obj.Parent
-					btn.MouseButton1Down:Connect(function()
-						bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+					local button = obj.Parent
+					button.MouseButton1Down:Connect(function()
+						bv.MaxForce = Vector3.new(math.huge,math.huge,math.huge)
 						bv.Velocity = Camera.CFrame.LookVector * strength
 					end)
-					buttonConnected = true
+					connected = true
 					break
 				end
 			end
